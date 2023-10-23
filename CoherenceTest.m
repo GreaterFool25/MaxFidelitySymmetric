@@ -1,14 +1,14 @@
 %Code to compare SDP's and iterative map algorithm for Cohtwirl. Save
-%function Cohtwirl.m (separate file) and then execute rest of the code. 
+%function Cohtwirl.m and Diagn.m (separate files) and then execute rest of the code. 
 zz=0;
 TimeDataSDP=[];TimeDataIter=[];
-x=4:4:36; 
-%+U5*rho*U5'+U6*rho*U6'+U7*rho*U7'+U8*rho*U8'+U9*rho*U9'+U10*rho*U10'
+x=4:4:36; %dimensions to be tested.
+
 for d=x
     
 T=100;
 xSDP=[];xIter=[];
-for t=1:T
+for t=1:T  % no. of cases to be averaged over.
 rho=rho_Rnd(d);
 tic
 cvx_begin sdp

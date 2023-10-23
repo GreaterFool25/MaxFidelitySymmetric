@@ -2,14 +2,15 @@
 %ptTwirl.m as separate function and execute code in command line.
 zz=0;
 TimeDataSDP=[];TimeDataIter=[];
-x=2:7; 
-%+U5*rho*U5'+U6*rho*U6'+U7*rho*U7'+U8*rho*U8'+U9*rho*U9'+U10*rho*U10'
-for d=x
+x=2:7; % dimensions to be tested.
+
+for d=x 
     
-T=100;
+T=100; % no. of cases to be averaged over.
 xSDP=[];xIter=[];
 for t=1:T
-rho=rho_Rnd(d^2);
+rho=rho_Rnd(d^2);  %H_max calculated for this state, can be modified 
+% to state of choice.
 tic
 cvx_begin sdp
 variable Z(d^2,d^2) complex
@@ -21,7 +22,7 @@ trace(Q)==1
 cvx_end
 xSDP=[xSDP toc];
 
-sig=rho_Rnd(d^2);vec=[];sig=ptTwirl(sig);
+sig=rho_Rnd(d^2);vec=[];sig=ptTwirl(sig);  %sig is the random seed for iterative map
 tic
 while abs( abs( Fidelity(rho,sig/trace(sig)) )-Fidelity(rho,Q/trace(Q)) )>10^(-5)
     sig=sig^(-1/2)*( ptTwirl( (sig^.5*rho*sig^.5)^.5 ) )^2*sig^(-1/2);
