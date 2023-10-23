@@ -1,4 +1,7 @@
-%Function called in CoherenceTest code.
+%Function called in CoherenceTest code. Performs the twirl channel
+%corresponding to the fidelity of asymmetry problem on a given state of any
+%dimension.
+
 function rhoT=Cohtwirl(rho)
     d=size(rho,1);
     rhoT=zeros(d,d);
