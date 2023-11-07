@@ -6,5 +6,5 @@
 
 function rhoT=ptTwirl(rho)
 d=sqrt(size(rho,1));
-rhoT=kron(eye(d)/d,tracea(rho,d));
+rhoT=kron(eye(d)/d,tracea(rho,d)); 
 end 

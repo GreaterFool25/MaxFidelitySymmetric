@@ -1,4 +1,4 @@
-%provides the partial trace (over subsystem A) for a given bipartite 
+%provides the partial trace (over subsystem A, the first subsystem) for a given bipartite 
 % state on systems AB.
 function pb=tracea(rho,da)
 db=size(rho,1)/da;
