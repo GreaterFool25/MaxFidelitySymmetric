@@ -6,5 +6,7 @@
 
 function rhoT=ptTwirl(rho)
 d=sqrt(size(rho,1));
-rhoT=kron(eye(d)/d,tracea(rho,d)); 
+rhoT=kron(eye(d)/d,tracea(rho,d)); %tracea(rho,d) is a function that traces 
+                                   % the first d-dimensional subsystem of
+                                   % rho.
 end 
