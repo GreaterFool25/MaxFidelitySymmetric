@@ -1,5 +1,5 @@
 %Code to compare SDP's and iterative map algorithm for calculating fidelity of coherence. 
-% Save function Diagn.m (separate files) and then execute
+% Save function Cohtwirl.m (separate files) and then execute
 % rest of the code. 
 %The rho_Rnd.m (and Haar.m which it calls) function also needs to be 
 % saved- it provides random density matrices 
@@ -25,7 +25,7 @@ trace(Diagm(Q))==1          %diagonalises vector to a diagonal matrix
 cvx_end
 xSDP=[xSDP toc];
 
-sig=(Diagn(rho^.5))^2;sig=sig/trace(sig);%setting initial point to the
+sig=(Cohtwirl(rho^.5))^2;sig=sig/trace(sig);%setting initial point to the
                                             %soln given for petz-renyi
                                             %entropies
 
@@ -33,7 +33,7 @@ vec=[];  % sig is random state that the
                                            % iterative map will work on.
 tic
 while abs( abs( Fidelity(rho,sig/trace(sig)) )-cvx_optval )>10^(-5)  %code to run iterative map till it beats the SDP solution.
-    sig=sig^(-1/2)*( Diagn( (sig^.5*rho*sig^.5)^.5 ) )^2*sig^(-1/2);
+    sig=sig^(-1/2)*( Cohtwirl( (sig^.5*rho*sig^.5)^.5 ) )^2*sig^(-1/2);
 end 
 xIter=[xIter toc];
 abs( Fidelity(rho,sig/trace(sig)) )-cvx_optval
