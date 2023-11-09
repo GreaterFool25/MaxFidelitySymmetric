@@ -1,4 +1,4 @@
-%Code to compare SDP's and iterative map algorithm for calculating fidelity of asymmetry. 
+%Code to compare SDP's and iterative map algorithm for calculating fidelity of coherence. 
 % Save function Diagn.m (separate files) and then execute
 % rest of the code. 
 %The rho_Rnd.m (and Haar.m which it calls) function also needs to be 
@@ -12,9 +12,9 @@ for d=x
 T=100;     %no. of instances the runtimes of the iterative map and SDP are averaged over.
 xSDP=[];xIter=[];
 for t=1:T  % no. of cases to be averaged over.
-rho=rho_Rnd(d); %random density matrix whose fidelity of asymmetry we intend to calculate.
+rho=rho_Rnd(d); %random density matrix whose fidelity of coherence we intend to calculate.
 tic
-cvx_begin sdp    % defining the SDP to calculate the fidelity of asymmetry
+cvx_begin sdp    % defining the SDP to calculate the fidelity of coherence
                  %using CVX in matlab. The solver is set to SDPT3.
 variable Z(d,d) complex
 variable Q(d,1) nonnegative
