@@ -1,20 +1,21 @@
-%Code to compare SDP's and iterative map algorithm for calculating fidelity of coherence. 
-% Save function Cohtwirl.m (separate files) and then execute
+%Code to compare SDP's and iterative map algorithm for calculating fidelity of asymmetry. 
+% Save function Cohtwirl.m and Diagn.m (separate files) and then execute
 % rest of the code. 
 %The rho_Rnd.m (and Haar.m which it calls) function also needs to be 
 % saved- it provides random density matrices 
 zz=0;
 TimeDataSDP=[];TimeDataIter=[];  %array to store runtime data.
 x=4:4:36; %dimensions to be tested.
+X_coh_AllData_SDP=[];X_coh_AllData_Iter=[];
 
 for d=x
     
 T=100;     %no. of instances the runtimes of the iterative map and SDP are averaged over.
 xSDP=[];xIter=[];
 for t=1:T  % no. of cases to be averaged over.
-rho=rho_Rnd(d); %random density matrix whose fidelity of coherence we intend to calculate.
+rho=rho_Rnd(d); %random density matrix whose fidelity of asymmetry we intend to calculate.
 tic
-cvx_begin sdp    % defining the SDP to calculate the fidelity of coherence
+cvx_begin sdp    % defining the SDP to calculate the fidelity of asymmetry
                  %using CVX in matlab. The solver is set to SDPT3.
 variable Z(d,d) complex
 variable Q(d,1) nonnegative
@@ -39,8 +40,11 @@ xIter=[xIter toc];
 abs( Fidelity(rho,sig/trace(sig)) )-cvx_optval
 
 end
-TimeDataSDP=[TimeDataSDP; [mean(log(xSDP)) std(log(xSDP))]];
-TimeDataIter=[TimeDataIter; [mean(log(xIter)) std(log(xIter))]];
+
+X_coh_AllData_SDP=[X_coh_AllData_SDP;xSDP];
+X_coh_AllData_Iter=[X_coh_AllData_Iter;xIter];
+TimeDataSDP=[TimeDataSDP; [mean((xSDP)) std((xSDP))]];
+TimeDataIter=[TimeDataIter; [mean((xIter)) std((xIter))]];
 zz=zz+1;
 end
 
@@ -51,6 +55,6 @@ errorbar(x',TimeDataIter(:,1),TimeDataIter(:,2))
 title('Runtime comparison for SDP and Iterative Algorithm ')
 xlabel('Dimension') 
 xlim([1 x(end)+6]) 
-ylim([-9,4])
+%ylim([-9,9])
 ylabel('Log of runtime') 
 legend({"SDP solver",'Iterative Algorithm'},'Location','southeast')
