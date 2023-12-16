@@ -5,6 +5,7 @@
 zz=0;
 TimeDataSDP=[];TimeDataIter=[];
 x=2:7; % dimensions to be tested.
+X_Hmax_AllData_SDP=[];X_Hmax_AllData_Iter=[];
 
 for d=x 
     
@@ -41,8 +42,11 @@ xIter=[xIter toc];
 abs( Fidelity(rho,sig/trace(sig)) )-cvx_optval
 
 end
-TimeDataSDP=[TimeDataSDP; [mean(log(xSDP)) std(log(xSDP))]];
-TimeDataIter=[TimeDataIter; [mean(log(xIter)) std(log(xIter))]];
+
+X_Hmax_AllData_SDP=[X_Hmax_AllData_SDP;xSDP];
+X_Hmax_AllData_Iter=[X_Hmax_AllData_Iter;xIter];
+TimeDataSDP=[TimeDataSDP; [mean(xSDP) std((xSDP))]];
+TimeDataIter=[TimeDataIter; [(mean(xIter)) std((xIter))]];
 zz=zz+1;
 end
 
@@ -50,7 +54,7 @@ end
 errorbar(x',TimeDataSDP(:,1),TimeDataSDP(:,2))
 hold on 
 errorbar(x',TimeDataIter(:,1),TimeDataIter(:,2))
-title('Runtime comparison for SDP and Iterative Algorithm ')
+title('Runtime comparison between SDP and Iterative Algorithm ')
 xlabel('Dimension') 
 xlim([1 x(end)+1]) 
 ylim([-9,5])
