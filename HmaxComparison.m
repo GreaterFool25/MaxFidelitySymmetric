@@ -1,62 +1,74 @@
-%Code to compare SDP's and iterative map algorithm for H_max. Save
-%ptTwirl.m as separate function and execute code in command line.
-%The rho_Rnd.m (and Haar.m which it calls) function also needs to be 
-% saved- it provides random density matrices 
-zz=0;
-TimeDataSDP=[];TimeDataIter=[];
-x=2:7; % dimensions to be tested.
-X_Hmax_AllData_SDP=[];X_Hmax_AllData_Iter=[];
+%This programs compares the fixed-point iterative algorithm with the SDP
+%solver SDPT3 for the max-conditional entropy. We test marginal dimensions ranging
+%form 2 to 6. For each dimension we record 100 samples.
 
-for d=x 
-    
-T=100; % no. of cases to be averaged over.
-xSDP=[];xIter=[];
-for t=1:T
-rho=rho_Rnd(d^2);  %H_max calculated for this random state, can be modified 
-% to state of choice.
-tic
-cvx_begin sdp   % defining the SDP to calculate the H_max
-                 %using CVX in matlab. The solver is set to SDPT3.
-variable Z(d^2,d^2) complex
-variable Q(d,d) complex semidefinite
-maximize(0.5*trace(Z + Z'))
-[rho Z; Z' kron(eye(d)/d,Q)] >= 0 
-trace(Q)==1
-%Diagn(Q)-Q==0
-cvx_end
-xSDP=[xSDP toc];
+clear all
+format long
 
-sig=(ptTwirl(rho^.5))^2;sig=sig/trace(sig); %setting initial point to the
-                                            %soln given for petz-renyi
-                                            %entropies
+x=[2 3 4 5 6 7]; % dimensions of the marginal to be tested.
 
-vec=[];  %sig is the random seed for iterative map.
-tic
-%the while condition is to stop the iterative map once it is sufficiently
-%close to the soln given by the SDP.
-while abs( abs( Fidelity(rho,sig/trace(sig)) )-Fidelity(rho,kron(eye(d)/d,Q)/trace(kron(eye(d)/d,Q))) )>10^(-5)
-    sig=sig^(-1/2)*( ptTwirl( (sig^.5*rho*sig^.5)^.5 ) )^2*sig^(-1/2);
-    vec=[vec Fidelity(rho,sig)];   
-end 
-xIter=[xIter toc];
-abs( Fidelity(rho,sig/trace(sig)) )-cvx_optval
+% We collect all data in a matrix. 
+%The rows label the dimensions, the columns label the samples for fixed dimension
+X_Hmax_AllData_SDP=[]; %data SDP
+X_Hmax_AllData_Iter=[]; %data of the fixed-point algorithm 
 
+%Auxiliaries arrays
+xSDP=[]; 
+xIter=[];
+
+errSDP=0; %counter for the Inaccurate solutions of the SDP
+for d=x %loop for each dimension
+    xSDP=[];xIter=[];
+    T=100; %numer of sample for each value of the dimension
+    t=0;
+    while t<T  %loop for the samples 
+        t=t+1;
+        R=randRho(d^2); %random matrix generation
+        
+        lambdamin=min(eig(R)); %minimum eigenvalue
+        lambdamax=max(eig(R)); %maximum eigenvalue
+        mu=lambdamin^(1/2)/(4*lambdamax^(3/2)); %strong convexity parameter
+        
+        %SDP solver
+        tic
+        cvx_begin sdp quiet
+        variable Z(d^2,d^2) complex
+        variable Q(d,d) complex semidefinite
+        maximize(0.5*trace(Z + Z'))
+        [R Z; Z' kron(eye(d)/d,Q)] >= 0 
+        trace(Q)==1
+        cvx_end
+      
+        %If the solution of the SDP is accurate, solve the fixed-point algorithm
+         
+        if strcmp(cvx_status, 'Solved')
+            xSDP=[xSDP toc]; %record the SDP runtime sample
+            
+            S=(ptTwirl(R^.5))^2; %initial state for the fixed-point algorithm
+            Grad=eye(d^2)-S^(-1/2)*ptTwirl((S^.5*R*S^.5)^.5)*S^(-1/2); %gradient
+            
+            %We use the PL inequality ocndition to have a guarantee on the closeness of
+            %each iteration to the optimal value
+            
+            %Fixed-point algorithm
+            tic
+            while (1/(2*mu))*trace(Grad*Grad')>10^(-9) 
+                S=S^(-1/2)*(ptTwirl((S^.5*R*S^.5)^.5))^2*S^(-1/2); 
+                Grad=eye(d^2)-S^(-1/2)*ptTwirl((S^.5*R*S^.5)^.5)*S^(-1/2);
+            end 
+            xIter=[xIter toc]; %record the fixed-point algorithm runtime sample
+       else 
+            errSDP=errSDP+1; %count the number of times the SDP retuns an inaccurate solution
+            t=t-1; %repeat the iteration if the solution of the SDP was inaccuarate
+        end
+    end
+    %record all data
+    X_Hmax_AllData_SDP=[X_Hmax_AllData_SDP; xSDP]
+    X_Hmax_AllData_Iter=[X_Hmax_AllData_Iter; xIter]
 end
 
-X_Hmax_AllData_SDP=[X_Hmax_AllData_SDP;xSDP];
-X_Hmax_AllData_Iter=[X_Hmax_AllData_Iter;xIter];
-TimeDataSDP=[TimeDataSDP; [mean(xSDP) std((xSDP))]];
-TimeDataIter=[TimeDataIter; [(mean(xIter)) std((xIter))]];
-zz=zz+1;
-end
 
-%Plotting code.
-errorbar(x',TimeDataSDP(:,1),TimeDataSDP(:,2))
-hold on 
-errorbar(x',TimeDataIter(:,1),TimeDataIter(:,2))
-title('Runtime comparison between SDP and Iterative Algorithm ')
-xlabel('Dimension') 
-xlim([1 x(end)+1]) 
-ylim([-9,5])
-ylabel('Log of runtime') 
-legend({"SDP solver",'Iterative Algorithm'},'Location','southeast')
+
+
+
+

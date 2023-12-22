@@ -1,60 +1,76 @@
-%Code to compare SDP's and iterative map algorithm for calculating fidelity of asymmetry. 
-% Save function Cohtwirl.m and Diagn.m (separate files) and then execute
-% rest of the code. 
-%The rho_Rnd.m (and Haar.m which it calls) function also needs to be 
-% saved- it provides random density matrices 
-zz=0;
-TimeDataSDP=[];TimeDataIter=[];  %array to store runtime data.
-x=4:4:36; %dimensions to be tested.
-X_coh_AllData_SDP=[];X_coh_AllData_Iter=[];
+%This programs compares the fixed-point iterative algorithm with the SDP
+%solver SDPT3 for the fidelity of coherence. We test 6 values of the dimension ranging
+%form 4 to 44. For each dimension we record 100 samples.
 
-for d=x
-    
-T=100;     %no. of instances the runtimes of the iterative map and SDP are averaged over.
-xSDP=[];xIter=[];
-for t=1:T  % no. of cases to be averaged over.
-rho=rho_Rnd(d); %random density matrix whose fidelity of asymmetry we intend to calculate.
-tic
-cvx_begin sdp    % defining the SDP to calculate the fidelity of asymmetry
-                 %using CVX in matlab. The solver is set to SDPT3.
-variable Z(d,d) complex
-variable Q(d,1) nonnegative
-maximize(0.5*trace(Z + Z'))
-[rho Z; Z' Diagm(Q)] >= 0   % Other manners of expressing the same constraints 
-                            %exist but this one is most efficient.
-trace(Diagm(Q))==1          %diagonalises vector to a diagonal matrix
-cvx_end
-xSDP=[xSDP toc];
+clear all
+format long
 
-sig=(Cohtwirl(rho^.5))^2;sig=sig/trace(sig);%setting initial point to the
-                                            %soln given for petz-renyi
-                                            %entropies
 
-vec=[];  % sig is random state that the 
-                                           % iterative map will work on.
-tic
-while abs( abs( Fidelity(rho,sig/trace(sig)) )-cvx_optval )>10^(-5)  %code to run iterative map till it beats the SDP solution.
-    sig=sig^(-1/2)*( Cohtwirl( (sig^.5*rho*sig^.5)^.5 ) )^2*sig^(-1/2);
-end 
-xIter=[xIter toc];
-abs( Fidelity(rho,sig/trace(sig)) )-cvx_optval
+x=[4 12 20 28 36 44]; % dimensions to be tested.
 
+% We collect all data in a matrix. 
+%The rows label the dimensions, the columns label the samples for fixed dimension
+X_coh_AllData_SDP=[]; %data SDP
+X_coh_AllData_Iter=[]; %data of the fixed-point algorithm 
+
+%Auxiliaries arrays
+xSDP=[];
+xIter=[];
+
+errSDP=0;%counter for the Inaccurate solutions of the SDP
+
+for d=x %loop for each dimension
+    xSDP=[];xIter=[];
+    T=100;  %numer of sample for each value of the dimension
+    t=0;
+    while t<T %loop for the samples
+        t=t+1;
+        R=randRho(d); %random matrix generation
+        
+        lambdamin=min(eig(R)); %minimum eigenvalue
+        lambdamax=max(eig(R)); %maximum eigenvalue
+        mu=lambdamin^(1/2)/(4*lambdamax^(3/2)); %strong convexity parameter
+        
+        %SDP solver
+        tic
+        cvx_begin sdp quiet
+        variable Z(d,d) complex
+        variable Q(d,1) nonnegative
+        maximize(0.5*trace(Z + Z'))
+        [R Z; Z' diag(Q)] >= 0   
+        trace(diag(Q))==1          
+        cvx_end
+        
+        %If the solution of the SDP is accurate, solve the fixed-point algorithm
+        if strcmp(cvx_status, 'Solved')
+            xSDP=[xSDP toc]; %record the SDP runtime sample
+            
+            
+            S=(diag(diag((R^.5))))^2; %initial state for the fixed-point algorithm
+            Grad=eye(d)-S^(-1/2)*diag(diag(((S^.5*R*S^.5)^.5)))*S^(-1/2); %gradient
+            
+            %We use the PL inequality ocndition to have a guarantee on the closeness of
+            %each iteration to the optimal value
+            
+            %Fixed-point algorithm
+            tic
+            while (1/(2*mu))*trace(Grad*Grad')>10^(-9)
+                S=S^(-1/2)*(diag(diag((S^.5*R*S^.5)^.5)))^2*S^(-1/2); 
+                Grad=eye(d)-S^(-1/2)*diag(diag((S^.5*R*S^.5)^.5))*S^(-1/2);
+            end 
+            xIter=[xIter toc]; %record the fixed-point algorithm runtime sample
+       else 
+            errSDP=errSDP+1; %count the number of times the SDP retuns an inaccurate solution
+            t=t-1;  %repeat the iteration if the solution of the SDP was inaccuarate
+        end
+    end
+    %record all data
+    X_coh_AllData_SDP=[X_coh_AllData_SDP; xSDP]
+    X_coh_AllData_Iter=[X_coh_AllData_Iter; xIter]
 end
 
-X_coh_AllData_SDP=[X_coh_AllData_SDP;xSDP];
-X_coh_AllData_Iter=[X_coh_AllData_Iter;xIter];
-TimeDataSDP=[TimeDataSDP; [mean((xSDP)) std((xSDP))]];
-TimeDataIter=[TimeDataIter; [mean((xIter)) std((xIter))]];
-zz=zz+1;
-end
 
-%Plotting code.
-errorbar(x',TimeDataSDP(:,1),TimeDataSDP(:,2))
-hold on 
-errorbar(x',TimeDataIter(:,1),TimeDataIter(:,2))
-title('Runtime comparison for SDP and Iterative Algorithm ')
-xlabel('Dimension') 
-xlim([1 x(end)+6]) 
-%ylim([-9,9])
-ylabel('Log of runtime') 
-legend({"SDP solver",'Iterative Algorithm'},'Location','southeast')
+
+
+
+
