@@ -1,0 +1,161 @@
+%This programs compares the fixed-point iterative algorithm with the
+%RGD (non-unit step size), PGD and SDP solver
+%solver SDPT3 for the B-W barycenter. We set 3 weights and matrix dimensions 
+%form 2 and 4. For each dimension we record 20 samples.
+
+clear all
+format long
+
+x=[2 4]; % dimensions of the marginal to be tested.
+m=3; %number of weights and matrices
+
+% We collect all data in a matrix. 
+%The rows label the dimensions, the columns label the samples for fixed dimension
+X_SZ_AllData_RGD1=[]; %data SDP
+X_SZ_AllData_RGDs=[]; %data of the fixed-point algorithm 
+X_SZ_AllData_PGDB=[];
+X_SZ_AllData_SDP=[];
+
+%Auxiliaries arrays
+xRGD1=[]; 
+xRGDs=[];
+xPGDB=[];
+xSDP=[];
+
+
+for d=x %loop for each dimension
+    xRGD1=[];xRGDs=[];xPGDB=[];xSDP=[];
+    T=20; %numer of sample for each value of the dimension
+    t=0;
+    while t<T  %loop for the samples 
+        t=t+1;
+        
+
+        %%%%%%%%%%%%%%%%%%%%%%%%%%
+        % Generation
+        %%%%%%%%%%%%%%%%%%%%%%%%%%
+
+        %generate matrices and weights
+      
+        omega = diag(randRho(m));
+        A = cell(1, m);  
+
+        lambdamin=1/d;
+        lambdamax=1/d;
+
+        %find lambdamin and lambdamax
+        for i = 1:m    
+                A{i} = randRho(d);  
+                lambdamin=min(lambdamin,min(eig(A{i})));
+                lambdamax=max(lambdamax,max(eig(A{i})));
+        end
+        mu=lambdamin^(1/2)/(4*lambdamax^(3/2));
+
+        %Initial point
+        SI=0;
+        for j = 1:m
+            SI = SI + omega(j)*A{j}^(1/2);
+        end
+        SI=SI^2;
+         
+        %%%%%%%%%%%%%%%%%%%%%%%%%
+        %          RGD1  
+        %%%%%%%%%%%%%%%%%%%%%%%%%
+
+        S=SI; %initial state for the fixed-point algorithm
+        Grad=1; %gradient
+            
+        tic
+        while (1/(2*mu))*trace(Grad*Grad')>10^(-9) 
+            int=0;
+            for j = 1:m
+                int = int + omega(j)*(S^(1/2)*A{j}*S^(1/2))^(1/2);
+            end
+            S=S^(-1/2)*int^2*S^(-1/2);
+            Grad=0;
+            for j = 1:m
+                Grad = Grad + omega(j)*(eye(d)-A{j}^(1/2)*(A{j}^(-1/2)*S^(-1)*A{j}^(-1/2))^(1/2)*A{j}^(1/2));
+            end
+        end 
+        xRGD1=[xRGD1 toc]; %record the fixed-point algorithm runtime sample
+
+        %%%%%%%%%%%%%%%%%%%%%%%%%
+        %          RGDs  
+        %%%%%%%%%%%%%%%%%%%%%%%%%
+
+        S=SI;
+        Grad=1;
+        etaRGDs=0.5*(lambdamin/lambdamax);
+
+        tic
+        while (1/(2*mu))*trace(Grad*Grad')>10^(-9) 
+            int=0;
+                for j = 1:m
+                    int = int + omega(j)*A{j}^(1/2)*(A{j}^(-1/2)*S^(-1)*A{j}^(-1/2))^(1/2)*A{j}^(1/2);
+                end
+            X=(1-etaRGDs)*eye(d)+etaRGDs*int;
+            S=X*S*X;
+            Grad=0;
+            for j = 1:m
+                Grad = Grad + omega(j)*(eye(d)-A{j}^(1/2)*(A{j}^(-1/2)*S^(-1)*A{j}^(-1/2))^(1/2)*A{j}^(1/2));
+            end
+            (1/(2*mu))*trace(Grad*Grad')
+        end 
+        xRGDs=[xRGDs toc]; %record the fixed-point algorithm runtime sample
+
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        %   PGDB
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+        S=SI;
+        Grad=1;
+        etaPGDB=4*(lambdamin^(3/2)/lambdamax^(1/2));
+
+        tic
+        while (1/(2*mu))*trace(Grad*Grad')>10^(-9) 
+            int=0;
+            for j = 1:m
+                int = int + omega(j)*A{j}^(1/2)*(A{j}^(-1/2)*S^(-1)*A{j}^(-1/2))^(1/2)*A{j}^(1/2);
+            end
+            S=chopEig(S-etaPGDB*(eye(d)-int),lambdamin,lambdamax);
+            Grad=0;
+            for j = 1:m
+                Grad = Grad + omega(j)*(eye(d)-A{j}^(1/2)*(A{j}^(-1/2)*S^(-1)*A{j}^(-1/2))^(1/2)*A{j}^(1/2));
+            end
+            (1/(2*mu))*trace(Grad*Grad')
+        end 
+        xPGDB=[xPGDB toc];
+
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        %   SDP
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+        for i = 1:m
+            block = m*omega(i)^2 * A{i};
+            idx = (i-1)*d + (1:d);  % Block index
+            R(idx, idx) = block;
+        end
+
+        tic
+        cvx_begin sdp quiet
+        variable Z(d*m,d*m) complex
+        variable Q(d,d) complex semidefinite
+        maximize(0.5*trace(Z + Z'))
+        [R Z; Z' kron(eye(m)/m,Q)] >= 0 
+        trace(Q)==1
+        cvx_end
+
+        xSDP=[xSDP toc];
+    end
+    %record all data
+    X_SZ_AllData_RGD1=[X_SZ_AllData_RGD1; xRGD1]
+    X_SZ_AllData_RGDs=[X_SZ_AllData_RGDs; xRGDs]
+    X_SZ_AllData_PGDB=[X_SZ_AllData_PGDB; xPGDB]
+    X_SZ_AllData_SDP=[X_SZ_AllData_SDP; xSDP]
+end
+
+ 
+
+
+
+

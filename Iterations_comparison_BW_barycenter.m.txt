@@ -1,0 +1,201 @@
+% This programm compares the fixed-point algorithm with RGD with non-unit
+% step size, PGD with two different step sizes and SDP solver for the B-W barycentr. We fix an
+% instance wih 3 weights and matrix dimension d=4 and run the gradient
+% descents algorithms for N=10000 iterations.
+
+clear all
+format long
+
+%generate matrices and weights
+m = 3;
+d = 4;
+omega = diag(randRho(m));
+A = cell(1, m);  
+
+lambdamin=1/d;
+lambdamax=1/d;
+
+%find lambdamin and lambdamax
+for i = 1:m    
+    A{i} = randRho(d);  
+    lambdamin=min(lambdamin,min(eig(A{i})));
+    lambdamax=max(lambdamax,max(eig(A{i})));
+end
+
+mu=lambdamin^(1/2)/(4*lambdamax^(3/2));
+
+N=10000;
+
+
+%Initial point
+SI=0;
+for j = 1:m
+    SI = SI + omega(j)*A{j}^(1/2);
+end
+SI=SI^2;
+S=SI;
+      
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+   %   RGD1
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+for n=1:N 
+    RGD1(n)=0;
+    for j = 1:m
+        RGD1(n) = RGD1(n) + omega(j)*bures(A{j},S);
+    end
+    int=0;
+    for j = 1:m
+        int = int + omega(j)*(S^(1/2)*A{j}*S^(1/2))^(1/2);
+    end
+    S=S^(-1/2)*int^2*S^(-1/2);
+end
+
+
+%plot RGD1
+
+%nexttile
+x = 1:1:N;
+hRGD1=plot(x,RGD1)  
+set(gca, 'XScale', 'log') 
+%title('RGD1')
+
+hold on
+
+
+
+SR1=S/trace(S)
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+   %   RGDs
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+S=SI;
+
+etaRGDs=0.5*(lambdamin/lambdamax);
+
+ 
+for n=1:N 
+    RGDs(n)=0;
+    for j = 1:m
+        RGDs(n) = RGDs(n) + omega(j)*bures(A{j},S);
+    end
+    int=0;
+    for j = 1:m
+        int = int + omega(j)*A{j}^(1/2)*(A{j}^(-1/2)*S^(-1)*A{j}^(-1/2))^(1/2)*A{j}^(1/2);
+    end
+    X=(1-etaRGDs)*eye(d)+etaRGDs*int;
+    S=X*S*X;
+end
+
+
+%plot RGDs
+
+%nexttile
+plot(x,RGDs)
+set(gca, 'XScale', 'log') 
+%title('RGDs')
+
+hold on
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+   %   PGDA
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+S=SI;
+
+etaPGDA=2*(lambdamin^3/lambdamax^2);
+
+
+for n=1:N 
+    PGDA(n)=0;
+    for j = 1:m
+        PGDA(n) = PGDA(n) + omega(j)*bures(A{j},S);
+    end
+    int=0;
+    for j = 1:m
+        int = int + omega(j)*A{j}^(1/2)*(A{j}^(-1/2)*S^(-1)*A{j}^(-1/2))^(1/2)*A{j}^(1/2);
+    end
+    S=chopEig(S-etaPGDA*(eye(d)-int),lambdamin,lambdamax);
+end
+
+
+%plot PGDA
+%nexttile
+%plot(x,PGDA)
+%set(gca, 'XScale', 'log') 
+%title('PGDA')
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+   %   PGDB
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+S=SI;
+
+etaPGDB=4*(lambdamin^(3/2)/lambdamax^(1/2));
+
+
+for n=1:N 
+    PGDB(n)=0;
+    for j = 1:m
+        PGDB(n) = PGDB(n) + omega(j)*bures(A{j},S);
+    end
+    int=0;
+    for j = 1:m
+        int = int + omega(j)*A{j}^(1/2)*(A{j}^(-1/2)*S^(-1)*A{j}^(-1/2))^(1/2)*A{j}^(1/2);
+    end
+    S=chopEig(S-etaPGDB*(eye(d)-int),lambdamin,lambdamax);
+end
+
+
+%plot PGDB
+
+%nexttile
+plot(x,PGDB,'y')
+set(gca, 'XScale', 'log') 
+%title('PGDB')
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+   %   SDP
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+for i = 1:m
+    block = m*omega(i)^2 * A{i};
+    idx = (i-1)*d + (1:d);  % Block index
+    R(idx, idx) = block;
+end
+
+
+tic
+cvx_begin sdp quiet
+variable Z(d*m,d*m) complex
+variable Q(d,d) complex semidefinite
+maximize(0.5*trace(Z + Z'))
+[R Z; Z' kron(eye(m)/m,Q)] >= 0 
+trace(Q)==1
+cvx_end
+
+toc
+
+Q
+
+
+
+
+
+
+
+
+
+
+
+
+
